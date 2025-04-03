@@ -1,5 +1,5 @@
 # ServerMaid!
-Discord bot for managing the total number of messages allowed in the channel provided.
+Discord bot for managing the total number of messages allowed in the channel provided. This has a premium set up in it if you wish to host this for a larger amount of server and then make some moneyy I couldnt haha. Couln't figure out all the rate limiting so go for it if you think you can!
 
 # Setup
 Edit the .env file and replace "YOUR BOTS TOKEN" with ofc, your bots token.
