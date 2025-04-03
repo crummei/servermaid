@@ -14,7 +14,7 @@ from asyncio import Lock, sleep
 import time
 import traceback
 
-# Add these constants at the top
+
 MIN_MESSAGES_LIMIT = 1    # Minimum messages to keep
 MAX_FETCH_LIMIT = 3000    # Maximum messages to fetch at once
 PREMIUM_SKU = "1349502955426025562"  # Changed to use the SKU ID
@@ -25,7 +25,7 @@ PREMIUM_MAX_CHANNELS = 10    # Maximum channels for premium tier
 CACHE_DURATION = 300  # Cache duration in seconds (5 minutes)
 
 def init_database():
-    # Create the database in the same directory as the script
+    # Create the database
     script_dir = os.path.dirname(os.path.abspath(__file__))
     db_path = os.path.join(script_dir, "server_settings.db")
     conn = sqlite3.connect(db_path)
@@ -33,10 +33,11 @@ def init_database():
     c.execute('''CREATE TABLE IF NOT EXISTS channel_settings
                  (server_id TEXT, channel_id TEXT, max_messages INTEGER, keep_pinned BOOLEAN,
                   PRIMARY KEY (server_id, channel_id))''')
-    # Add new table for tracking thanks
+    # New table for tracking thanks
     c.execute('''CREATE TABLE IF NOT EXISTS user_thanks
                  (user_id TEXT, last_thanks_date TEXT, streak INTEGER,
                   PRIMARY KEY (user_id))''')
+    # New table for server settings
     c.execute('''CREATE TABLE IF NOT EXISTS server_settings
                  (guild_id TEXT, setting_name TEXT, setting_value TEXT,
                   PRIMARY KEY (guild_id, setting_name))''')
@@ -48,21 +49,18 @@ def init_database():
     conn.close()
     return db_path
 
-# Initialize DB_PATH after the function is defined
 DB_PATH = init_database()
 
-# Update bot setup to use explicit shard count
 load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
 intents.dm_messages = False
 
-# Create AutoShardedBot with explicit shard count
 bot = commands.AutoShardedBot(
     command_prefix="!",
     intents=intents,
-    shard_count=6  # You can adjust this number based on your needs
+    shard_count=6
 )
 
 @contextmanager
@@ -73,7 +71,6 @@ def get_db_connection():
     finally:
         conn.close()
 
-# Add this class before the bot setup
 class ChannelSettingsCache:
     def __init__(self):
         self._cache = {}
@@ -101,12 +98,9 @@ class ChannelSettingsCache:
             del self._cache[cache_key]
             del self._last_updated[cache_key]
 
-# Create global cache instance
 channel_settings_cache = ChannelSettingsCache()
 
-# Update the get_channel_settings function
 def get_channel_settings(server_id: str, channel_id: str):
-    # Try to get from cache first
     cached_settings = channel_settings_cache.get(server_id, channel_id)
     if cached_settings is not None:
         return cached_settings
@@ -118,11 +112,10 @@ def get_channel_settings(server_id: str, channel_id: str):
                      WHERE server_id = ? AND channel_id = ?''', (server_id, channel_id))
         settings = c.fetchone()
         if settings:
-            # Cache the results
             channel_settings_cache.set(server_id, channel_id, settings)
         return settings
 
-# Update save_channel_settings to invalidate cache
+# Update settings to invalidate cache
 def save_channel_settings(server_id: str, channel_id: str, max_messages: int, keep_pinned: bool):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -130,10 +123,8 @@ def save_channel_settings(server_id: str, channel_id: str, max_messages: int, ke
                  VALUES (?, ?, ?, ?)''', (server_id, channel_id, max_messages, keep_pinned))
     conn.commit()
     conn.close()
-    # Invalidate cache for this channel
     channel_settings_cache.invalidate(server_id, channel_id)
 
-# Update remove_channel_settings to invalidate cache
 def remove_channel_settings(server_id: str, channel_id: str):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -141,7 +132,6 @@ def remove_channel_settings(server_id: str, channel_id: str):
               (server_id, channel_id))
     conn.commit()
     conn.close()
-    # Invalidate cache for this channel
     channel_settings_cache.invalidate(server_id, channel_id)
 
 def get_managed_channels(server_id: str):
@@ -153,12 +143,10 @@ def get_managed_channels(server_id: str):
     conn.close()
     return results
 
-# Add these new functions for managing thanks
 def check_user_thanks(user_id: str) -> tuple[bool, int]:
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     
-    # Get user's local time
     local_time = get_user_local_time(user_id)
     today = local_time.strftime('%Y-%m-%d')
     
@@ -171,14 +159,11 @@ def check_user_thanks(user_id: str) -> tuple[bool, int]:
     
     last_thanks_date, streak = result
     
-    # Convert last_thanks_date string to datetime object in user's timezone
     last_thanks_dt = datetime.datetime.strptime(last_thanks_date, '%Y-%m-%d').date()
     local_dt = local_time.date()
     
-    # Calculate days difference
     days_diff = (local_dt - last_thanks_dt).days
     
-    # If more than 1 day has passed, reset streak
     if days_diff > 1:
         streak = 0
     
@@ -190,7 +175,6 @@ def update_user_thanks(user_id: str, decrease_streak: bool = False):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     
-    # Get user's local time
     local_time = get_user_local_time(user_id)
     today = local_time.strftime('%Y-%m-%d')
     
@@ -205,12 +189,12 @@ def update_user_thanks(user_id: str, decrease_streak: bool = False):
         
         if decrease_streak:
             new_streak = max(0, current_streak - 1)
-            current_streak = new_streak + 1  # For display purposes
-        elif days_diff == 1:  # Only increment if exactly one day has passed
+            current_streak = new_streak + 1
+        elif days_diff == 1:
             new_streak = current_streak + 1
-        elif days_diff == 0:  # Same day
+        elif days_diff == 0:
             new_streak = current_streak
-        else:  # More than one day passed
+        else:
             new_streak = 1
             current_streak = 0
     else:
@@ -228,13 +212,11 @@ def get_user_local_time(user_id: str) -> datetime:
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     
-    # Get user's timezone, default to UTC if not set
     c.execute('SELECT timezone FROM user_settings WHERE user_id = ?', (user_id,))
     result = c.fetchone()
     timezone = result[0] if result else 'UTC'
     conn.close()
     
-    # Convert UTC time to user's local time
     utc_time = discord.utils.utcnow()
     local_tz = pytz.timezone(timezone)
     local_time = utc_time.astimezone(local_tz)
@@ -251,10 +233,8 @@ async def update_server_list():
         server_info = f"{guild.name} (ID: {guild.id}) - Members: {guild.member_count}"
         servers.append(server_info)
     
-    # Sort alphabetically
     servers.sort()
     
-    # Write to file
     try:
         with open(servers_file, 'w', encoding='utf-8') as f:
             f.write("=== Server Maid Monitored Servers ===\n")
@@ -279,7 +259,6 @@ async def on_ready():
     except Exception as e:
         print(f"Failed to sync commands: {e}")
     
-    # Update server list on startup
     await update_server_list()
     print("⚡ Ready to clean messages!")
 
@@ -311,7 +290,6 @@ async def on_shard_disconnect(shard_id):
 async def on_shard_resumed(shard_id):
     print(f'Shard {shard_id} has resumed')
 
-# Add error handling for shard-related issues
 @bot.event
 async def on_shard_error(shard_id, error):
     print(f'An error occurred on shard {shard_id}: {error}')
@@ -343,7 +321,6 @@ async def shard_info(interaction: discord.Interaction):
 async def check_premium_status(guild_id: str) -> bool:
     """Check if a guild has the premium subscription"""
     try:
-        # First check the database
         with get_db_connection() as conn:
             c = conn.cursor()
             c.execute('''SELECT setting_value FROM server_settings 
@@ -352,10 +329,8 @@ async def check_premium_status(guild_id: str) -> bool:
             if result and result[0] == PREMIUM_SKU:
                 return True
         
-        # Then check active entitlements
         guild = bot.get_guild(int(guild_id))
         if guild:
-            # Use the bot's application to fetch entitlements
             entitlements = await bot.application.fetch_guild_entitlements(guild.id)
             for entitlement in entitlements:
                 if str(entitlement.sku_id) == PREMIUM_SKU and not entitlement.consumed:
@@ -379,25 +354,19 @@ def get_server_limits(guild_id: str) -> tuple[int, int]:
     try:
         is_premium = check_premium_status(guild_id)
         
-        # Get current managed channels count
         current_channels = get_managed_channels(guild_id)
         current_channel_count = len(current_channels)
         
         if is_premium:
-            # For premium servers, check if they exceed the new limits
             for channel_id, max_messages, keep_pinned in current_channels:
                 if max_messages > PREMIUM_MAX_MESSAGES:
-                    # Update channel settings to new premium limit
                     save_channel_settings(guild_id, channel_id, PREMIUM_MAX_MESSAGES, keep_pinned)
             return PREMIUM_MAX_MESSAGES, PREMIUM_MAX_CHANNELS
         else:
-            # For free servers, enforce free tier limits
             for channel_id, max_messages, keep_pinned in current_channels:
                 if max_messages > FREE_MAX_MESSAGES:
-                    # Update channel settings to free tier limit
                     save_channel_settings(guild_id, channel_id, FREE_MAX_MESSAGES, keep_pinned)
             
-            # If they have more channels than free tier allows, remove excess channels
             if current_channel_count > FREE_MAX_CHANNELS:
                 excess_channels = current_channels[FREE_MAX_CHANNELS:]
                 for channel_id, _, _ in excess_channels:
@@ -406,7 +375,7 @@ def get_server_limits(guild_id: str) -> tuple[int, int]:
             return FREE_MAX_MESSAGES, FREE_MAX_CHANNELS
     except Exception as e:
         print(f"Error in get_server_limits: {str(e)}")
-        return FREE_MAX_MESSAGES, FREE_MAX_CHANNELS  # Default to free tier on error
+        return FREE_MAX_MESSAGES, FREE_MAX_CHANNELS
 
 @bot.tree.command(name="configure", description="Configure the maid bot for a specific channel")
 @app_commands.describe(
@@ -416,10 +385,8 @@ def get_server_limits(guild_id: str) -> tuple[int, int]:
 )
 async def configure(interaction: discord.Interaction, channel: discord.TextChannel, max_messages: int, keep_pinned: bool):
     try:
-        # Check premium status and get limits
         max_messages_limit, max_channels = get_server_limits(str(interaction.guild_id))
         
-        # Check if adding this channel would exceed the channel limit
         current_channels = get_managed_channels(str(interaction.guild_id))
         if len(current_channels) >= max_channels and str(channel.id) not in [c[0] for c in current_channels]:
             await interaction.response.send_message(
@@ -429,7 +396,6 @@ async def configure(interaction: discord.Interaction, channel: discord.TextChann
             )
             return
         
-        # Check message limit
         if max_messages > max_messages_limit:
             await interaction.response.send_message(
                 f"Maximum messages cannot exceed {max_messages_limit}. " +
@@ -445,7 +411,6 @@ async def configure(interaction: discord.Interaction, channel: discord.TextChann
             )
             return
         
-        # Check bot permissions
         permissions = channel.permissions_for(interaction.guild.me)
         if not (permissions.manage_messages and permissions.read_message_history):
             await interaction.response.send_message(
@@ -465,7 +430,6 @@ async def configure(interaction: discord.Interaction, channel: discord.TextChann
             ephemeral=True
         )
         
-        # Perform initial cleanup with new system
         messages = []
         async for msg in channel.history(limit=MAX_FETCH_LIMIT):
             await message_fetcher.acquire()
@@ -502,7 +466,6 @@ async def configure(interaction: discord.Interaction, channel: discord.TextChann
             ephemeral=True
         )
 
-    # After saving settings, invalidate the message count cache for this channel
     message_count_cache.invalidate(str(channel.id))
 
 @bot.tree.command(name="remove_channel", description="Remove a channel from being managed by the maid bot")
@@ -520,10 +483,8 @@ async def remove_channel(interaction: discord.Interaction, channel: discord.Text
         ephemeral=True
     )
 
-    # After removing settings, invalidate the message count cache for this channel
     message_count_cache.invalidate(str(channel.id))
 
-# Add this class near the top with other classes
 class MessageCountCache:
     def __init__(self):
         self._cache = {}
@@ -537,7 +498,6 @@ class MessageCountCache:
             if channel_id in self._cache:
                 return self._cache[channel_id]
             
-            # If not in cache, do initial count
             count = 0
             async for _ in channel.history(limit=None):
                 count += 1
@@ -562,13 +522,10 @@ class MessageCountCache:
             if channel_id in self._last_updated:
                 del self._last_updated[channel_id]
 
-# Create global instance
 message_count_cache = MessageCountCache()
 
-# Modify the on_message event handler
 @bot.event
 async def on_message(message):
-    # Skip DMs and bot messages
     if message.guild is None or message.author == bot.user:
         return
         
@@ -580,22 +537,18 @@ async def on_message(message):
     channel_id = str(message.channel.id)
 
     try:
-        # Get current message count
         current_count = await message_count_cache.get_message_count(channel_id, message.channel)
         message_count_cache.increment_count(channel_id)
         
-        # If we need to delete messages
         if current_count + 1 > max_messages:
             print(f"\n=== Starting message cleanup for channel {message.channel.name} ===")
             print(f"Current messages: {current_count + 1}, Max allowed: {max_messages}")
             
             messages_to_delete = []
-            # We want to keep the newest messages, so we'll fetch more than we need and sort
             async for msg in message.channel.history(limit=current_count + 1):
                 if not (keep_pinned and msg.pinned):
                     messages_to_delete.append(msg)
             
-            # Sort by timestamp (oldest first)
             messages_to_delete.sort(key=lambda x: x.created_at)
             
             # Only delete the oldest messages that exceed our limit
@@ -620,18 +573,15 @@ async def on_message(message):
     except Exception as e:
         print(f"Error in message handler: {e}")
         print(f"Full error: {traceback.format_exc()}")
-        # Invalidate cache on error to force recount next time
         message_count_cache.invalidate(channel_id)
 
 @bot.event
 async def on_guild_join(guild):
     """Sends a welcome message when the bot joins a new server"""
-    print(f"Joined new guild: {guild.name} (ID: {guild.id})")  # Debug log
+    print(f"Joined new guild: {guild.name} (ID: {guild.id})")
     
-    # Try to find the best channel to send the welcome message
     target_channel = None
     
-    # First, try to find specific named channels in order of preference
     preferred_channels = ["welcome", "general", "main"]
     for channel_name in preferred_channels:
         for channel in guild.text_channels:
@@ -643,7 +593,6 @@ async def on_guild_join(guild):
         if target_channel:
             break
     
-    # If no preferred channel found, try to find the first channel we can send messages in
     if not target_channel:
         for channel in guild.text_channels:
             permissions = channel.permissions_for(guild.me)
@@ -694,29 +643,25 @@ async def list_managed_channels(interaction: discord.Interaction):
     for channel_id, max_messages, keep_pinned in channels:
         channel = interaction.guild.get_channel(int(channel_id))
         if channel:
-            # Convert the numeric boolean to True/False string
             keep_pinned_str = "True" if keep_pinned else "False"
             message += f"• {channel.mention}: Max messages: {max_messages}, Keep pinned: {keep_pinned_str}\n"
     
     await interaction.response.send_message(message, ephemeral=True)
 
-# Add the thanks command
 @bot.tree.command(
     name="thanks",
     description="Thank the bot for its service!"
 )
 async def thanks(interaction: discord.Interaction):
     try:
-        print("Starting thanks command...")  # Debug log
+        print("Starting thanks command...")
         
-        # First defer the response
         try:
             await interaction.response.defer(ephemeral=False)
         except discord.errors.NotFound:
-            # If the interaction is already acknowledged, continue with the command
             pass
             
-        print("Response deferred")  # Debug log
+        print("Response deferred")
         
         user_id = str(interaction.user.id)
         
@@ -727,9 +672,8 @@ async def thanks(interaction: discord.Interaction):
             await interaction.followup.send("Could not verify your server membership.", ephemeral=True)
             return
         
-        print(f"Member validated: {member.display_name}")  # Debug log
+        print(f"Member validated: {member.display_name}")
         
-        # Check timezone with error handling
         with get_db_connection() as conn:
             c = conn.cursor()
             c.execute('SELECT timezone FROM user_settings WHERE user_id = ?', (user_id,))
@@ -742,9 +686,8 @@ async def thanks(interaction: discord.Interaction):
             )
             return
         
-        print(f"Timezone checked: {timezone_result[0]}")  # Debug log
+        print(f"Timezone checked: {timezone_result[0]}")
         
-        # Check if already thanked
         already_thanked, current_streak = check_user_thanks(user_id)
         print(f"Thanks check - Already thanked: {already_thanked}, Current streak: {current_streak}")  # Debug log
         
@@ -755,7 +698,7 @@ async def thanks(interaction: discord.Interaction):
             )
             return
             
-        # If we get here, user hasn't thanked today, proceed with updating thanks
+        # If we get here, they havent thanked today, proceed with updating thanks
         responses = [
             "Noo thank you!!",
             "You are too kind ^^",
@@ -859,11 +802,11 @@ async def thanks(interaction: discord.Interaction):
         response = random.choice(responses)
         decrease_streak = response == "＼(｀0´)／ I DONT ACCEPT YOUR THANKS MINUS 1 STREAK!"
         
-        print(f"Selected response: {response}")  # Debug log
+        print(f"Selected response: {response}")
         
         try:
             new_streak, old_streak = update_user_thanks(user_id, decrease_streak)
-            print(f"Updated thanks - New streak: {new_streak}, Old streak: {old_streak}")  # Debug log
+            print(f"Updated thanks - New streak: {new_streak}, Old streak: {old_streak}")
         except Exception as e:
             print(f"Error in update_user_thanks: {str(e)}")
             await interaction.followup.send("An error occurred while updating your streak.", ephemeral=True)
@@ -875,15 +818,15 @@ async def thanks(interaction: discord.Interaction):
             streak_message = f"Streak: {old_streak} → {new_streak} days!" if old_streak > 0 else f"Streak started! {new_streak} day!"
         
         final_message = f"{response}\n{streak_message}"
-        print(f"Sending final message: {final_message}")  # Debug log
+        print(f"Sending final message: {final_message}")
         
         await interaction.followup.send(final_message, ephemeral=False)
-        print("Command completed successfully")  # Debug log
+        print("Command completed successfully")
         
     except Exception as e:
         print(f"Error in thanks command: {e.__class__.__name__}: {str(e)}")
-        traceback.print_exc()  # Print the full traceback for debugging
-        # Only send error message if we haven't sent a response yet
+        traceback.print_exc()
+        # Only send error message if we havent sent a response yet
         if not interaction.response.is_done():
             try:
                 await interaction.response.send_message("An unexpected error occurred.", ephemeral=True)
@@ -896,13 +839,11 @@ async def thanks(interaction: discord.Interaction):
 )
 async def leaderboard(interaction: discord.Interaction):
     try:
-        # Use ephemeral=True for the defer to avoid the timeout
         await interaction.response.defer(ephemeral=False, thinking=True)
         
         with get_db_connection() as conn:
             c = conn.cursor()
             
-            # Get all users with their streaks
             c.execute('''
                 SELECT user_id, streak 
                 FROM user_thanks 
@@ -914,13 +855,10 @@ async def leaderboard(interaction: discord.Interaction):
             await interaction.followup.send("No one has thanked me yet... 😢", ephemeral=False)
             return
         
-        # Build leaderboard message
         leaderboard_msg = "**🏆 Thank You Leaderboard 🏆**\n\n"
         
-        # Define medal emojis
         medals = ["🥇", "🥈", "🥉"]
         
-        # Get member objects for all users and filter out invalid ones
         valid_entries = []
         for user_id, streak in results:
             try:
@@ -930,14 +868,12 @@ async def leaderboard(interaction: discord.Interaction):
             except:
                 continue
         
-        # Take only top 5 entries after filtering
         valid_entries = valid_entries[:5]
         
-        # Display leaderboard entries
         for index, (member, streak) in enumerate(valid_entries):
-            if index < 3:  # Top 3 get medals
+            if index < 3:
                 prefix = f"{medals[index]} "
-            else:  # 4th and 5th get numbers
+            else:
                 prefix = f"#{index + 1} "
             
             leaderboard_msg += f"{prefix}{member.display_name}: {streak} day{'s' if streak != 1 else ''}\n"
@@ -974,7 +910,6 @@ async def leaderboard(interaction: discord.Interaction):
 ])
 async def set_timezone(interaction: discord.Interaction, timezone: str):
     try:
-        # Validate timezone
         pytz.timezone(timezone)
         
         conn = sqlite3.connect(DB_PATH)
@@ -986,7 +921,7 @@ async def set_timezone(interaction: discord.Interaction, timezone: str):
         
         await interaction.response.send_message(
             f"Your timezone has been set to {timezone}!",
-            ephemeral=True  # Makes the response only visible to the user
+            ephemeral=True
         )
     except pytz.exceptions.UnknownTimeZoneError:
         await interaction.response.send_message(
@@ -994,7 +929,6 @@ async def set_timezone(interaction: discord.Interaction, timezone: str):
             ephemeral=True
         )
 
-# Create a more sophisticated rate limiter
 class RateLimiter:
     def __init__(self, requests_per_second: float, max_backoff: float = 300.0):
         self.base_delay = max(1.0 / requests_per_second, 1.0)
@@ -1021,13 +955,12 @@ class RateLimiter:
     def increase_backoff(self, retry_after: float = None):
         self.consecutive_429s += 1
         if retry_after is not None:
-            # Use Discord's retry_after value plus a buffer
             self.current_delay = min(
-                retry_after + 1.0,  # Add 1 second buffer
+                retry_after + 1.0,
                 self.max_backoff
             )
         else:
-            # Fallback to exponential backoff
+
             self.current_delay = min(
                 self.base_delay * (4 ** self.consecutive_429s),
                 self.max_backoff
@@ -1040,9 +973,8 @@ class RateLimiter:
             self.consecutive_429s = 0
             self.current_delay = self.base_delay
 
-# Create global rate limiters for different operations
-message_deleter = RateLimiter(0.5)    # Reduced to 1 deletion every 2 seconds
-message_fetcher = RateLimiter(1.0)    # Reduced to 1 fetch per second
+message_deleter = RateLimiter(0.5)
+message_fetcher = RateLimiter(1.0)
 
 async def delete_messages_safely(messages_to_delete, channel):
     """Safely delete messages with rate limiting and error handling"""
@@ -1074,13 +1006,13 @@ async def delete_messages_safely(messages_to_delete, channel):
             deleted_count += len(chunk)
             message_deleter.reset_backoff()
             print(f"Successfully deleted chunk {i}")
-            await asyncio.sleep(5.0)  # Slight delay to prevent triggering rate limits
+            await asyncio.sleep(5.0)
         except discord.errors.HTTPException as e:
             print(f"HTTP error in chunk {i}: {str(e)}")
-            if e.status == 429:  # Rate limit hit
+            if e.status == 429:
                 retry_after = e.retry_after if hasattr(e, 'retry_after') else 30.0
                 message_deleter.increase_backoff(retry_after)
-                wait_time = retry_after + 5.0  # Add 5 second buffer
+                wait_time = retry_after + 5.0
                 print(f"Rate limited. Waiting {wait_time} seconds...")
                 await asyncio.sleep(wait_time)
                 try:
@@ -1100,7 +1032,6 @@ async def delete_messages_safely(messages_to_delete, channel):
             failed_count += len(chunk)
             await asyncio.sleep(30.0)
 
-    # Delete old messages individually
     if old_messages:
         print(f"\nProcessing {len(old_messages)} old messages")
         for i, msg in enumerate(old_messages, 1):
@@ -1136,7 +1067,6 @@ async def delete_messages_safely(messages_to_delete, channel):
     print(f"Final results - Deleted: {deleted_count}, Failed: {failed_count}")
     return deleted_count, failed_count
 
-# Move subscribe command to be with other commands (before bot.run())
 @bot.tree.command(
     name="subscribe",
     description="Get information about Server Maid Premium subscription"
@@ -1149,7 +1079,6 @@ async def subscribe(interaction: discord.Interaction):
         await interaction.response.send_message("You need administrator permissions to manage subscriptions!", ephemeral=True)
         return
 
-    # Check if already premium
     is_premium = await check_premium_status(str(interaction.guild_id))
     if is_premium:
         await interaction.response.send_message(
@@ -1161,7 +1090,6 @@ async def subscribe(interaction: discord.Interaction):
         )
         return
 
-    # Create embed with premium information
     embed = discord.Embed(
         title="Server Maid Premium ✨",
         description="Upgrade your server's cleaning capabilities!",
@@ -1202,13 +1130,11 @@ async def on_application_command_error(interaction: discord.Interaction, error: 
             ephemeral=True
         )
 
-# Add this new event handler for entitlement updates
 @bot.event
 async def on_entitlement_create(entitlement: discord.Entitlement):
     """Handle new entitlements (premium purchases)"""
     try:
         if str(entitlement.sku_id) == PREMIUM_SKU:
-            # Save the premium status in the database
             with get_db_connection() as conn:
                 c = conn.cursor()
                 c.execute('''INSERT OR REPLACE INTO server_settings
@@ -1217,10 +1143,8 @@ async def on_entitlement_create(entitlement: discord.Entitlement):
                          (str(entitlement.guild_id), 'premium_sku', PREMIUM_SKU))
                 conn.commit()
             
-            # Try to notify the server
             guild = bot.get_guild(entitlement.guild_id)
             if guild:
-                # Find a suitable channel to send the notification
                 for channel in guild.text_channels:
                     if channel.permissions_for(guild.me).send_messages:
                         await channel.send(
@@ -1237,7 +1161,6 @@ async def on_entitlement_delete(entitlement: discord.Entitlement):
     """Handle entitlement deletions (premium expiration/cancellation)"""
     try:
         if str(entitlement.sku_id) == PREMIUM_SKU:
-            # Remove the premium status from the database
             with get_db_connection() as conn:
                 c = conn.cursor()
                 c.execute('''DELETE FROM server_settings
@@ -1245,7 +1168,6 @@ async def on_entitlement_delete(entitlement: discord.Entitlement):
                          (str(entitlement.guild_id),))
                 conn.commit()
             
-            # Try to notify the server
             guild = bot.get_guild(entitlement.guild_id)
             if guild:
                 for channel in guild.text_channels:
@@ -1259,7 +1181,6 @@ async def on_entitlement_delete(entitlement: discord.Entitlement):
     except Exception as e:
         print(f"Error handling entitlement delete: {str(e)}")
 
-# Update the bot run command with correct timeout configuration
 try:
     bot.run(
         os.getenv('DISCORD_TOKEN'),
