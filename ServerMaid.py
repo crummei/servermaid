@@ -30,7 +30,7 @@ thread = threading.Thread(target=run_flask)
 thread.daemon = True
 thread.start()
 
-MIN_MESSAGES_LIMIT = 0    # Minimum messages to keep
+MIN_MESSAGES_LIMIT = 1    # Minimum messages to keep
 MAX_FETCH_LIMIT = 3000    # Maximum messages to fetch at once
 PREMIUM_SKU = "1349502955426025562"  # Changed to use the SKU ID
 FREE_MAX_MESSAGES = 5000  # Original max message limit
@@ -454,8 +454,10 @@ async def configure(interaction: discord.Interaction, channel: discord.TextChann
             messages = [msg for msg in messages if not msg.pinned]
         messages.sort(key=lambda x: x.created_at)
 
-        if len(messages) > max_messages:
-            to_delete = messages[:len(messages) - max_messages]
+	#if len(messages) > max_messages:
+	if len(messages) > 0:
+	    #to_delete = messages[:len(messages) - max_messages]
+            to_delete = messages[:len(messages) - 0]
             deleted, failed = await delete_messages_safely(to_delete, channel)
             
             await interaction.followup.send(
