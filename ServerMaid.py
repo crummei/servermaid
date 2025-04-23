@@ -242,57 +242,57 @@ async def update_server_list():
             f.write(f"Total Servers: {len(servers)}\n\n")
             for server in servers:
                 f.write(f"{server}\n")
-        print(f"✍️ Updated servers list in {servers_file}")
+        logging.info(f"✍️ Updated servers list in {servers_file}")
     except Exception as e:
-        print(f"❌ Error writing servers file: {e}")
+        logging.info(f"❌ Error writing servers file: {e}")
 
 @bot.event
 async def on_ready():
-    print(f'✅ Logged in as {bot.user} (ID: {bot.user.id})')
-    print(f'🔄 Connected to {len(bot.guilds)} servers')
-    print(f'📊 Using {bot.shard_count} shards')
+    logging.info(f'✅ Logged in as {bot.user} (ID: {bot.user.id})')
+    logging.info(f'🔄 Connected to {len(bot.guilds)} servers')
+    logging.info(f'📊 Using {bot.shard_count} shards')
     for guild in bot.guilds:
-        print(f'🛠 Server: {guild.name} (ID: {guild.id})')
+        logging.info(f'🛠 Server: {guild.name} (ID: {guild.id})')
     try:
         synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} command(s)")
+        logging.info(f"Synced {len(synced)} command(s)")
     except Exception as e:
-        print(f"Failed to sync commands: {e}")
+        logging.warning(f"Failed to sync commands: {e}")
     
     await update_server_list()
-    print("⚡ Ready to clean messages!")
+    logging.info("⚡ Ready to clean messages!")
 
 @bot.event
 async def on_guild_join(guild):
     """Called when the bot joins a new server"""
-    print(f"🎉 Joined new server: {guild.name} (ID: {guild.id})")
+    logging.info(f"🎉 Joined new server: {guild.name} (ID: {guild.id})")
     await update_server_list()
 
 @bot.event
 async def on_guild_remove(guild):
     """Called when the bot leaves a server"""
-    print(f"👋 Left server: {guild.name} (ID: {guild.id})")
+    logging.info(f"👋 Left server: {guild.name} (ID: {guild.id})")
     await update_server_list()
 
 @bot.event
 async def on_shard_ready(shard_id):
-    print(f'Shard {shard_id} is ready')
+    logging.info(f'Shard {shard_id} is ready')
 
 @bot.event
 async def on_shard_connect(shard_id):
-    print(f'Shard {shard_id} has connected')
+    logging.info(f'Shard {shard_id} has connected')
 
 @bot.event
 async def on_shard_disconnect(shard_id):
-    print(f'Shard {shard_id} has disconnected')
+    logging.info(f'Shard {shard_id} has disconnected')
 
 @bot.event
 async def on_shard_resumed(shard_id):
-    print(f'Shard {shard_id} has resumed')
+    logging.info(f'Shard {shard_id} has resumed')
 
 @bot.event
 async def on_shard_error(shard_id, error):
-    print(f'An error occurred on shard {shard_id}: {error}')
+    logging.warning(f'An error occurred on shard {shard_id}: {error}')
 
 # Add a command to check shard status
 @bot.tree.command(name="shardinfo", description="Get information about the bot's shards")
@@ -346,7 +346,7 @@ async def check_premium_status(guild_id: str) -> bool:
         
         return False
     except Exception as e:
-        print(f"Error checking premium status: {str(e)}")
+        logging.warning(f"Error checking premium status: {str(e)}")
         return False
 
 def get_server_limits(guild_id: str) -> tuple[int, int]:
@@ -374,7 +374,7 @@ def get_server_limits(guild_id: str) -> tuple[int, int]:
             
             return FREE_MAX_MESSAGES, FREE_MAX_CHANNELS
     except Exception as e:
-        print(f"Error in get_server_limits: {str(e)}")
+        logging.warning(f"Error in get_server_limits: {str(e)}")
         return FREE_MAX_MESSAGES, FREE_MAX_CHANNELS
 
 @bot.tree.command(name="configure", description="Configure the maid bot for a specific channel")
@@ -460,7 +460,7 @@ async def configure(interaction: discord.Interaction, channel: discord.TextChann
             ephemeral=True
         )
     except Exception as e:
-        print(f"Error in configure command: {str(e)}")
+        logging.warning(f"Error in configure command: {str(e)}")
         await interaction.response.send_message(
             "An unexpected error occurred. Please try again later.",
             ephemeral=True
@@ -541,8 +541,8 @@ async def on_message(message):
         message_count_cache.increment_count(channel_id)
         
         if current_count + 1 > max_messages:
-            print(f"\n=== Starting message cleanup for channel {message.channel.name} ===")
-            print(f"Current messages: {current_count + 1}, Max allowed: {max_messages}")
+            logging.info(f"\n=== Starting message cleanup for channel {message.channel.name} ===")
+            logging.info(f"Current messages: {current_count + 1}, Max allowed: {max_messages}")
             
             messages_to_delete = []
             async for msg in message.channel.history(limit=current_count + 1):
@@ -555,7 +555,7 @@ async def on_message(message):
             to_delete = messages_to_delete[:-max_messages] if messages_to_delete else []
             
             if to_delete:
-                print(f"Deleting {len(to_delete)} oldest messages to maintain limit of {max_messages}")
+                logging.info(f"Deleting {len(to_delete)} oldest messages to maintain limit of {max_messages}")
                 deleted, failed = await delete_messages_safely(to_delete, message.channel)
                 
                 # Update cache with accurate count - count all messages including pinned ones
@@ -565,20 +565,20 @@ async def on_message(message):
                 
                 message_count_cache.set_count(channel_id, actual_count)
                 
-                print(f"New message count: {actual_count}")
-                print(f"Channel {message.channel.name} (ID: {message.channel.id}) in server {message.guild.name} (ID: {message.guild.id}) is within message limit ({actual_count}/{max_messages})")
+                logging.info(f"New message count: {actual_count}")
+                logging.info(f"Channel {message.channel.name} (ID: {message.channel.id}) in server {message.guild.name} (ID: {message.guild.id}) is within message limit ({actual_count}/{max_messages})")
         else:
-            print(f"Channel {message.channel.name} (ID: {message.channel.id}) in server {message.guild.name} (ID: {message.guild.id}) is within message limit ({current_count + 1}/{max_messages})")
+            logging.info(f"Channel {message.channel.name} (ID: {message.channel.id}) in server {message.guild.name} (ID: {message.guild.id}) is within message limit ({current_count + 1}/{max_messages})")
                 
     except Exception as e:
-        print(f"Error in message handler: {e}")
-        print(f"Full error: {traceback.format_exc()}")
+        logging.warning(f"Error in message handler: {e}")
+        logging.warning(f"Full error: {traceback.format_exc()}")
         message_count_cache.invalidate(channel_id)
 
 @bot.event
 async def on_guild_join(guild):
     """Sends a welcome message when the bot joins a new server"""
-    print(f"Joined new guild: {guild.name} (ID: {guild.id})")
+    logging.info(f"Joined new guild: {guild.name} (ID: {guild.id})")
     
     target_channel = None
     
@@ -620,13 +620,13 @@ Incase your channel has many more messages than the max limit you set, you might
 duplicate the channel and delete the old one, as deletnig the old messages could take some time.
 """
             await target_channel.send(welcome_message)
-            print(f"Sent welcome message in {target_channel.name}")  # Debug log
+            logging.info(f"Sent welcome message in {target_channel.name}")  # Debug log
         except discord.Forbidden:
-            print(f"Failed to send welcome message - Missing permissions in {target_channel.name}")
+            logging.warning(f"Failed to send welcome message - Missing permissions in {target_channel.name}")
         except Exception as e:
-            print(f"Error sending welcome message: {str(e)}")
+            logging.warning(f"Error sending welcome message: {str(e)}")
     else:
-        print(f"Could not find a suitable channel to send welcome message in {guild.name}")
+        logging.info(f"Could not find a suitable channel to send welcome message in {guild.name}")
 
 @bot.tree.command(name="list_managed_channels", description="List all channels being managed by the bot")
 async def list_managed_channels(interaction: discord.Interaction):
@@ -654,14 +654,14 @@ async def list_managed_channels(interaction: discord.Interaction):
 )
 async def thanks(interaction: discord.Interaction):
     try:
-        print("Starting thanks command...")
+        logging.info("Starting thanks command...")
         
         try:
             await interaction.response.defer(ephemeral=False)
         except discord.errors.NotFound:
             pass
             
-        print("Response deferred")
+        logging.info("Response deferred")
         
         user_id = str(interaction.user.id)
         
@@ -672,7 +672,7 @@ async def thanks(interaction: discord.Interaction):
             await interaction.followup.send("Could not verify your server membership.", ephemeral=True)
             return
         
-        print(f"Member validated: {member.display_name}")
+        logging.info(f"Member validated: {member.display_name}")
         
         with get_db_connection() as conn:
             c = conn.cursor()
@@ -686,10 +686,10 @@ async def thanks(interaction: discord.Interaction):
             )
             return
         
-        print(f"Timezone checked: {timezone_result[0]}")
+        logging.info(f"Timezone checked: {timezone_result[0]}")
         
         already_thanked, current_streak = check_user_thanks(user_id)
-        print(f"Thanks check - Already thanked: {already_thanked}, Current streak: {current_streak}")  # Debug log
+        logging.info(f"Thanks check - Already thanked: {already_thanked}, Current streak: {current_streak}")  # Debug log
         
         if already_thanked:
             await interaction.followup.send(
@@ -802,13 +802,13 @@ async def thanks(interaction: discord.Interaction):
         response = random.choice(responses)
         decrease_streak = response == "＼(｀0´)／ I DONT ACCEPT YOUR THANKS MINUS 1 STREAK!"
         
-        print(f"Selected response: {response}")
+        logging.info(f"Selected response: {response}")
         
         try:
             new_streak, old_streak = update_user_thanks(user_id, decrease_streak)
-            print(f"Updated thanks - New streak: {new_streak}, Old streak: {old_streak}")
+            logging.info(f"Updated thanks - New streak: {new_streak}, Old streak: {old_streak}")
         except Exception as e:
-            print(f"Error in update_user_thanks: {str(e)}")
+            logging.warning(f"Error in update_user_thanks: {str(e)}")
             await interaction.followup.send("An error occurred while updating your streak.", ephemeral=True)
             return
         
@@ -818,13 +818,13 @@ async def thanks(interaction: discord.Interaction):
             streak_message = f"Streak: {old_streak} → {new_streak} days!" if old_streak > 0 else f"Streak started! {new_streak} day!"
         
         final_message = f"{response}\n{streak_message}"
-        print(f"Sending final message: {final_message}")
+        logging.info(f"Sending final message: {final_message}")
         
         await interaction.followup.send(final_message, ephemeral=False)
-        print("Command completed successfully")
+        logging.info("Command completed successfully")
         
     except Exception as e:
-        print(f"Error in thanks command: {e.__class__.__name__}: {str(e)}")
+        logging.warning(f"Error in thanks command: {e.__class__.__name__}: {str(e)}")
         traceback.print_exc()
         # Only send error message if we havent sent a response yet
         if not interaction.response.is_done():
@@ -881,7 +881,7 @@ async def leaderboard(interaction: discord.Interaction):
         await interaction.followup.send(leaderboard_msg, ephemeral=False)
         
     except Exception as e:
-        print(f"Error in leaderboard command: {str(e)}")
+        logging.warning(f"Error in leaderboard command: {str(e)}")
         if not interaction.response.is_done():
             await interaction.response.send_message(
                 "Sorry, something went wrong while fetching the leaderboard!",
@@ -948,7 +948,7 @@ class RateLimiter:
                     self.base_delay
                 )
                 if wait_time > 0:
-                    print(f"Rate limiter waiting for {wait_time:.2f} seconds...")
+                    logging.info(f"Rate limiter waiting for {wait_time:.2f} seconds...")
                     await sleep(wait_time)
             self.last_request = time.time()
 
@@ -965,11 +965,11 @@ class RateLimiter:
                 self.base_delay * (4 ** self.consecutive_429s),
                 self.max_backoff
             )
-        print(f"Rate limited! Increasing backoff delay to {self.current_delay:.2f} seconds")
+        logging.warning(f"Rate limited! Increasing backoff delay to {self.current_delay:.2f} seconds")
 
     def reset_backoff(self):
         if self.consecutive_429s > 0:
-            print("Resetting rate limit backoff")
+            logging.info("Resetting rate limit backoff")
             self.consecutive_429s = 0
             self.current_delay = self.base_delay
 
@@ -981,8 +981,8 @@ async def delete_messages_safely(messages_to_delete, channel):
     deleted_count = 0
     failed_count = 0
     
-    print(f"\n=== Starting message deletion process in channel: {channel.name} (ID: {channel.id}) ===")
-    print(f"Server: {channel.guild.name} (ID: {channel.guild.id})")
+    logging.info(f"\n=== Starting message deletion process in channel: {channel.name} (ID: {channel.id}) ===")
+    logging.info(f"Server: {channel.guild.name} (ID: {channel.guild.id})")
     
     # Group messages by age
     recent_messages = []
@@ -994,46 +994,46 @@ async def delete_messages_safely(messages_to_delete, channel):
         else:
             old_messages.append(msg)
     
-    print(f"Messages to process - Recent: {len(recent_messages)}, Old: {len(old_messages)}")
+    logging.info(f"Messages to process - Recent: {len(recent_messages)}, Old: {len(old_messages)}")
 
     # Bulk delete recent messages in chunks
     chunks = [recent_messages[i:i + 50] for i in range(0, len(recent_messages), 50)]
     for i, chunk in enumerate(chunks, 1):
         try:
-            print(f"Processing chunk {i}/{len(chunks)} ({len(chunk)} messages)")
+            logging.info(f"Processing chunk {i}/{len(chunks)} ({len(chunk)} messages)")
             await message_deleter.acquire()
             await channel.delete_messages(chunk)
             deleted_count += len(chunk)
             message_deleter.reset_backoff()
-            print(f"Successfully deleted chunk {i}")
+            logging.info(f"Successfully deleted chunk {i}")
             await asyncio.sleep(5.0)
         except discord.errors.HTTPException as e:
-            print(f"HTTP error in chunk {i}: {str(e)}")
+            logging.warning(f"HTTP error in chunk {i}: {str(e)}")
             if e.status == 429:
                 retry_after = e.retry_after if hasattr(e, 'retry_after') else 30.0
                 message_deleter.increase_backoff(retry_after)
                 wait_time = retry_after + 5.0
-                print(f"Rate limited. Waiting {wait_time} seconds...")
+                logging.warning(f"Rate limited. Waiting {wait_time} seconds...")
                 await asyncio.sleep(wait_time)
                 try:
                     await channel.delete_messages(chunk)
                     deleted_count += len(chunk)
-                    print(f"Successfully deleted chunk {i} after rate limit")
+                    logging.info(f"Successfully deleted chunk {i} after rate limit")
                 except Exception as inner_e:
-                    print(f"Failed to delete chunk after rate limit: {inner_e}")
+                    logging.warning(f"Failed to delete chunk after rate limit: {inner_e}")
                     failed_count += len(chunk)
                     await asyncio.sleep(30.0)
             else:
-                print(f"Error deleting messages: {e}")
+                logging.warning(f"Error deleting messages: {e}")
                 failed_count += len(chunk)
                 await asyncio.sleep(30.0)
         except Exception as e:
-            print(f"Unexpected error in chunk {i}: {str(e)}")
+            logging.warning(f"Unexpected error in chunk {i}: {str(e)}")
             failed_count += len(chunk)
             await asyncio.sleep(30.0)
 
     if old_messages:
-        print(f"\nProcessing {len(old_messages)} old messages")
+        logging.info(f"\nProcessing {len(old_messages)} old messages")
         for i, msg in enumerate(old_messages, 1):
             try:
                 await message_deleter.acquire()
@@ -1046,12 +1046,12 @@ async def delete_messages_safely(messages_to_delete, channel):
                     retry_after = e.retry_after if hasattr(e, 'retry_after') else 30.0
                     message_deleter.increase_backoff(retry_after)
                     wait_time = retry_after + 5.0
-                    print(f"Rate limited. Waiting {wait_time} seconds...")
+                    logging.warning(f"Rate limited. Waiting {wait_time} seconds...")
                     await asyncio.sleep(wait_time)
                     try:
                         await msg.delete()
                         deleted_count += 1
-                        print(f"Successfully deleted message {i} after rate limit")
+                        logging.info(f"Successfully deleted message {i} after rate limit")
                     except:
                         failed_count += 1
                         await asyncio.sleep(30.0)
@@ -1059,12 +1059,12 @@ async def delete_messages_safely(messages_to_delete, channel):
                     failed_count += 1
                     await asyncio.sleep(30.0)
             except Exception as e:
-                print(f"Error deleting old message {i}: {e}")
+                logging.warning(f"Error deleting old message {i}: {e}")
                 failed_count += 1
                 await asyncio.sleep(30.0)
 
-    print(f"\n=== Deletion process complete for channel {channel.name} (ID: {channel.id}) in server {channel.guild.name} (ID: {channel.guild.id}) ===")
-    print(f"Final results - Deleted: {deleted_count}, Failed: {failed_count}")
+    logging.info(f"\n=== Deletion process complete for channel {channel.name} (ID: {channel.id}) in server {channel.guild.name} (ID: {channel.guild.id}) ===")
+    logging.info(f"Final results - Deleted: {deleted_count}, Failed: {failed_count}")
     return deleted_count, failed_count
 
 @bot.tree.command(
@@ -1073,7 +1073,7 @@ async def delete_messages_safely(messages_to_delete, channel):
 )
 @app_commands.guild_only()
 async def subscribe(interaction: discord.Interaction):
-    print(f"Subscribe command triggered by {interaction.user} in {interaction.guild}")
+    logging.info(f"Subscribe command triggered by {interaction.user} in {interaction.guild}")
     
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("You need administrator permissions to manage subscriptions!", ephemeral=True)
@@ -1123,7 +1123,7 @@ async def subscribe(interaction: discord.Interaction):
 @bot.event
 async def on_application_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     """Handle command errors globally"""
-    print(f"Command error: {str(error)}")
+    logging.warning(f"Command error: {str(error)}")
     if not interaction.response.is_done():
         await interaction.response.send_message(
             "An error occurred while processing your command.",
@@ -1154,7 +1154,7 @@ async def on_entitlement_create(entitlement: discord.Entitlement):
                         )
                         break
     except Exception as e:
-        print(f"Error handling entitlement create: {str(e)}")
+        logging.warning(f"Error handling entitlement create: {str(e)}")
 
 @bot.event
 async def on_entitlement_delete(entitlement: discord.Entitlement):
@@ -1179,7 +1179,7 @@ async def on_entitlement_delete(entitlement: discord.Entitlement):
                         )
                         break
     except Exception as e:
-        print(f"Error handling entitlement delete: {str(e)}")
+        logging.warning(f"Error handling entitlement delete: {str(e)}")
 
 try:
     bot.run(
@@ -1187,4 +1187,4 @@ try:
         reconnect=True
     )
 except Exception as e:
-    print(f"Failed to start bot: {e}")
+    logging.warning(f"Failed to start bot: {e}")
