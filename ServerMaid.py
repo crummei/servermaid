@@ -13,6 +13,8 @@ from contextlib import contextmanager
 from asyncio import Lock, sleep
 import time
 import traceback
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 MIN_MESSAGES_LIMIT = 1    # Minimum messages to keep
