@@ -30,11 +30,11 @@ thread = threading.Thread(target=run_flask)
 thread.daemon = True
 thread.start()
 
-MIN_MESSAGES_LIMIT = 1    # Minimum messages to keep
+MIN_MESSAGES_LIMIT = 0    # Minimum messages to keep
 MAX_FETCH_LIMIT = 3000    # Maximum messages to fetch at once
 PREMIUM_SKU = "1349502955426025562"  # Changed to use the SKU ID
-FREE_MAX_MESSAGES = 1000  # Original max message limit
-FREE_MAX_CHANNELS = 3     # Maximum channels for free tier
+FREE_MAX_MESSAGES = 5000  # Original max message limit
+FREE_MAX_CHANNELS = 10     # Maximum channels for free tier
 PREMIUM_MAX_MESSAGES = 5000  # New premium message limit
 PREMIUM_MAX_CHANNELS = 10    # Maximum channels for premium tier
 CACHE_DURATION = 300  # Cache duration in seconds (5 minutes)
