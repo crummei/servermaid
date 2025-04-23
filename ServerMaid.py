@@ -454,8 +454,8 @@ async def configure(interaction: discord.Interaction, channel: discord.TextChann
 			messages = [msg for msg in messages if not msg.pinned]
 		messages.sort(key=lambda x: x.created_at)
 	
-	#if len(messages) > max_messages:
-	if len(messages) > 0:
+		#if len(messages) > max_messages:
+		if len(messages) > 0:
 		#to_delete = messages[:len(messages) - max_messages]
 			to_delete = messages[:len(messages) - 0]
 			deleted, failed = await delete_messages_safely(to_delete, channel)
