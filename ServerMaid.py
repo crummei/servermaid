@@ -15,7 +15,20 @@ import time
 import traceback
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from flask import Flask
+import threading
+app = Flask(__name__)
 
+@app.route("/")
+def home():
+	return "Process is running!"
+
+def run_flask():
+	app.run(host="0.0.0.0", port=5000)
+
+thread = threading.Thread(target=run_flask)
+thread.daemon = True
+thread.start()
 
 MIN_MESSAGES_LIMIT = 1    # Minimum messages to keep
 MAX_FETCH_LIMIT = 3000    # Maximum messages to fetch at once
