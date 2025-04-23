@@ -1183,7 +1183,7 @@ async def on_entitlement_delete(entitlement: discord.Entitlement):
 
 try:
     bot.run(
-        os.getenv('DISCORD_TOKEN'),
+        os.environ.get('DISCORD_TOKEN'),
         reconnect=True
     )
 except Exception as e:
